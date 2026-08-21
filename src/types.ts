@@ -17,22 +17,33 @@ export interface PluginModule {
   unmount?(container: HTMLElement): void;
 }
 
-/* ── Domain types shared by frontend and server ─────────────────────── */
+/* ── domain ─────────────────────────────────────────────────────── */
 
-export type Status = '进行' | '停滞' | '卡外部';
+export type Status = 'idea' | 'executing' | 'blocked' | 'closed';
 
-export interface Promise_ {
-  id: string;
+/** One initiative card = `initiatives/<slug>.md`. Status lives here only. */
+export interface Initiative {
+  file: string;
+  slug: string;
   title: string;
-  body: string;
-  owner: string;
   status: Status;
-  due: string | null;
-  daysLeft: number | null;
-  scope: string | null;
-  planFile: string | null;
-  targetPath: string | null;
-  section: 'open' | 'far';
+  owner: string | null;
+  publisher: string | null;
+  project: string | null;
+  created: string | null;
+  lastProgress: string | null;
+  reviewDate: string | null;
+  nextAction: string | null;
+  blocker: string | null;
+  waitingOn: string | null;
+  blockedSince: string | null;
+  /** Days since last_progress; null when the field is missing. */
+  staleDays: number | null;
+  /** Days until review_date; negative = overdue. */
+  reviewIn: number | null;
+  log: { date: string; text: string }[];
+  /** Fields required by `status` that are currently empty. */
+  missing: string[];
 }
 
 export interface ClientSummary {
@@ -50,7 +61,7 @@ export interface ClientDetail extends ClientSummary {
   product: string[];
   timeline: { date: string; title: string; body: string }[];
   docs: { title: string; path: string }[];
-  promises: Promise_[];
+  initiatives: Initiative[];
 }
 
 export interface InboxLine {
@@ -60,36 +71,18 @@ export interface InboxLine {
   archived: string[];
 }
 
-export interface WeeklyCheck {
-  item: string;
-  who: string;
-  ask: string;
-  criteria: string;
-}
-
-export interface WeeklyPerson {
-  name: string;
-  bullets: string[];
-  note: string | null;
-}
-
-export interface WeeklyTopic {
-  lead: string;
-  body: string;
-}
-
+export interface WeeklyCheck { item: string; who: string; ask: string; criteria: string; }
+export interface WeeklyPerson { name: string; bullets: string[]; note: string | null; }
+export interface WeeklyTopic { lead: string; body: string; }
 export interface Weekly {
-  file: string;
-  date: string;
-  checks: WeeklyCheck[];
-  people: WeeklyPerson[];
-  topics: WeeklyTopic[];
+  file: string; date: string;
+  checks: WeeklyCheck[]; people: WeeklyPerson[]; topics: WeeklyTopic[];
 }
 
 export interface VaultData {
   vaultPath: string;
   today: string;
-  promises: Promise_[];
+  initiatives: Initiative[];
   clients: ClientSummary[];
   people: string[];
   inbox: { file: string; date: string; lines: InboxLine[] };
@@ -100,12 +93,19 @@ export interface DetectResult {
   checked: { path: string; ok: boolean }[];
 }
 
+/** Required fields per status — the plugin refuses a transition without them. */
+export const REQUIRED_BY_STATUS: Record<Status, string[]> = {
+  idea: ['review_date'],
+  executing: ['owner', 'next_action', 'review_date'],
+  blocked: ['owner', 'blocker', 'waiting_on', 'blocked_since', 'next_action', 'review_date'],
+  closed: [],
+};
+
 export type WriteAction =
   | { kind: 'quick-note'; text: string }
   | { kind: 'archive'; lineIndex: number; targetRel: string; entry: string }
-  | { kind: 'backfill'; promiseId: string; conclusion: string; criteria: string; next: string; review: string; targetRel: string }
-  | { kind: 'reschedule'; promiseId: string; review: string }
-  | { kind: 'set-owner'; promiseId: string; owner: string }
+  /** Patch frontmatter fields; `log` prepends a dated line and bumps last_progress. */
+  | { kind: 'patch-initiative'; slug: string; fields: Record<string, string>; log?: string }
   | { kind: 'client-entry'; targetRel: string; title: string; body: string };
 
 export interface DiffHunk {
