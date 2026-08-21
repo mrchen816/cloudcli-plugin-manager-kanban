@@ -175,7 +175,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     root.innerHTML = '';
     root.appendChild(chipBar(c));
 
-    const pad = el('div', { padding: '14px 16px 40px', display: 'flex', flexDirection: 'column', gap: '12px' });
+    const pad = el('div', { padding: '12px 16px 40px', display: 'flex', flexDirection: 'column', gap: '10px' });
     root.appendChild(pad);
 
     if (s.error) pad.appendChild(banner(c, c.danger, s.error));
@@ -209,6 +209,33 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     return d.toISOString().slice(0, 10);
   }
 
+  function dueLabel(p: Promise_): string {
+    if (!p.due) return '—';
+    if ((p.daysLeft ?? 0) < 0) return `逾期 ${-(p.daysLeft ?? 0)}`;
+    if (p.daysLeft === 0) return '今天';
+    return `${p.daysLeft}天`;
+  }
+
+  function dueColor(c: C, p: Promise_): string {
+    return (p.daysLeft ?? 99) <= 0 ? c.danger : c.muted;
+  }
+
+  function listBox(c: C): HTMLElement {
+    return el('div', {
+      display: 'flex', flexDirection: 'column',
+      border: `1px solid ${c.border}`, borderRadius: '8px', overflow: 'hidden',
+    });
+  }
+
+  function stackItem(c: C, first: boolean, extra?: Partial<CSSStyleDeclaration>): HTMLElement {
+    return el('div', {
+      padding: '8px 0',
+      borderTop: first ? 'none' : `1px solid ${c.border}`,
+      display: 'flex', flexDirection: 'column', gap: '2px',
+      ...(extra || {}),
+    });
+  }
+
   /** One line: what today actually demands. Kept to three clauses. */
   function todayLine(): string {
     const open = s.data!.promises.filter((p) => p.section === 'open');
@@ -227,16 +254,19 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
   function summaryCard(c: C): HTMLElement {
     const open = s.data!.promises.filter((p) => p.section === 'open');
     const overdue = open.filter((p) => (p.daysLeft ?? 99) < 0).length;
-    const box = card(c, { gap: '6px', borderColor: overdue ? c.danger : c.border });
-    box.appendChild(el('div', { color: c.faint, letterSpacing: '0.1em' }, `今日 · ${s.data!.today}`));
-    box.appendChild(el('div', { fontSize: '15px', fontWeight: '600', lineHeight: '1.5' }, todayLine()));
+    const box = card(c, {
+      gap: '4px',
+      borderLeft: `2px solid ${overdue ? c.danger : c.border}`,
+    });
+    box.appendChild(el('div', { color: c.faint, fontSize: '12px' }, `今日 · ${s.data!.today}`));
+    box.appendChild(el('div', { fontSize: '13px', fontWeight: '500', lineHeight: '1.5' }, todayLine()));
     return box;
   }
 
   function chipBar(c: C): HTMLElement {
     const bar = el('div', {
       position: 'sticky', top: '0', zIndex: '5', background: c.surface,
-      borderBottom: `1px solid ${c.border}`, padding: '10px 16px',
+      borderBottom: `1px solid ${c.border}`, padding: '8px 16px',
       display: 'flex', gap: '8px', overflowX: 'auto', alignItems: 'center',
     });
     for (const [v, label] of VIEWS) {
@@ -302,22 +332,19 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
                  items: Promise_[], defaultCollapsed = false): void {
     if (s.collapsed[key] === undefined) s.collapsed[key] = defaultCollapsed;
     const h = el('div', {
-      display: 'flex', alignItems: 'baseline', gap: '10px', cursor: 'pointer',
-      padding: '8px 2px 2px', flexWrap: 'wrap',
+      display: 'flex', alignItems: 'baseline', gap: '8px', cursor: 'pointer',
+      padding: '10px 2px 4px', flexWrap: 'wrap',
     });
     h.append(
-      el('div', { fontWeight: '600' }, title),
-      el('div', { color: c.faint }, meta),
-      el('div', { marginLeft: 'auto', color: c.faint }, s.collapsed[key] ? '展开' : '收起'),
+      el('div', { fontWeight: '600', fontSize: '12px' }, title),
+      el('div', { color: c.faint, fontSize: '12px' }, meta),
+      el('div', { marginLeft: 'auto', color: c.faint, fontSize: '12px' }, s.collapsed[key] ? '展开' : '收起'),
     );
     h.onclick = () => { s.collapsed[key] = !s.collapsed[key]; render(); };
     pad.appendChild(h);
     if (s.collapsed[key]) return;
 
-    const list = el('div', {
-      display: 'flex', flexDirection: 'column',
-      border: `1px solid ${c.border}`, borderRadius: '10px', overflow: 'hidden',
-    });
+    const list = listBox(c);
     items.forEach((p, i) => list.appendChild(compactRow(c, p, i > 0)));
     pad.appendChild(list);
   }
@@ -329,29 +356,28 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     });
 
     const row = el('div', {
-      display: 'grid', gridTemplateColumns: '68px minmax(0,1fr) auto',
-      gap: '4px 12px', alignItems: 'center', padding: '9px 14px', cursor: 'pointer',
+      display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) auto',
+      gap: '2px 10px', alignItems: 'start', padding: '7px 12px', cursor: 'pointer',
     });
     row.appendChild(el('div', {
-      fontWeight: '600', whiteSpace: 'nowrap',
-      color: (p.daysLeft ?? 99) <= 0 ? c.danger : (p.daysLeft ?? 99) <= 3 ? c.warn : c.muted,
-    }, p.due ? ((p.daysLeft ?? 0) < 0 ? `逾期 ${-(p.daysLeft ?? 0)}` : (p.daysLeft === 0 ? '今天' : `${p.daysLeft}天`)) : '—'));
+      fontWeight: '400', whiteSpace: 'nowrap', fontSize: '12px',
+      fontVariantNumeric: 'tabular-nums', color: dueColor(c, p),
+    }, dueLabel(p)));
 
     const mid = el('div', { minWidth: '0', display: 'flex', flexDirection: 'column', gap: '1px' });
-    mid.appendChild(el('div', { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }, p.title));
     mid.appendChild(el('div', {
-      color: c.faint, whiteSpace: s.expanded === p.id ? 'normal' : 'nowrap',
+      fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    }, p.title));
+    mid.appendChild(el('div', {
+      color: c.faint, fontSize: '12px', whiteSpace: s.expanded === p.id ? 'normal' : 'nowrap',
       overflow: 'hidden', textOverflow: 'ellipsis',
     }, p.body));
     row.appendChild(mid);
 
-    const right = el('div', { display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' });
-    right.appendChild(el('span', {
-      padding: '2px 9px', borderRadius: '999px', border: `1px solid ${c.border}`,
-      color: p.status === '进行' ? c.ok : p.status === '停滞' ? c.warn : c.faint,
-    }, p.status));
-    if (p.scope) right.appendChild(el('span', { color: c.faint }, p.scope));
-    row.appendChild(right);
+    const bits = [p.status, p.scope].filter(Boolean).join(' · ');
+    row.appendChild(el('div', {
+      color: c.faint, fontSize: '12px', whiteSpace: 'nowrap', paddingTop: '1px',
+    }, bits));
 
     row.onclick = () => {
       s.expanded = s.expanded === p.id ? null : p.id;
@@ -361,7 +387,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     wrap.appendChild(row);
 
     if (s.expanded === p.id) {
-      const box = el('div', { padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: '10px' });
+      const box = el('div', { padding: '0 12px 10px', display: 'flex', flexDirection: 'column', gap: '8px' });
       const actions = el('div', { display: 'flex', gap: '8px', flexWrap: 'wrap' });
       const bf = ghost(c, s.form === p.id ? '收起回填' : '回填');
       bf.onclick = (e) => { e.stopPropagation(); s.form = s.form === p.id ? null : p.id; render(); };
@@ -406,7 +432,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     const inputs: Record<string, HTMLInputElement> = {};
     for (const [k, label, hint] of fields) {
       const l = el('label', { display: 'flex', flexDirection: 'column', gap: '5px' });
-      l.appendChild(el('span', { color: c.faint, letterSpacing: '0.08em' }, label));
+      l.appendChild(el('span', { color: c.faint, fontSize: '12px' }, label));
       const i = el('input', {
         border: `1px solid ${c.border}`, borderRadius: '8px', padding: '9px 12px',
         background: c.bg, color: c.text, fontFamily: FONT, fontSize: '13px', outline: 'none',
@@ -504,7 +530,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
       .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
     pad.appendChild(banner(c, c.warn, '会前准备强、会后回填弱 —— 拿判据逐条来收。'));
     if (!stale.length) { pad.appendChild(note(c, '没有到期的条目。')); return; }
-    const list = el('div', { display: 'flex', flexDirection: 'column', border: `1px solid ${c.border}`, borderRadius: '10px', overflow: 'hidden' });
+    const list = listBox(c);
     stale.forEach((p, i) => list.appendChild(compactRow(c, p, i > 0)));
     pad.appendChild(list);
   }
@@ -514,20 +540,17 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     if (w?.file) {
       pad.appendChild(note(c, `${w.file} · ${w.date}`));
       if (w.checks.length) {
-        const box = card(c, { gap: '10px' });
-        box.appendChild(el('div', { fontWeight: '600' }, `必查 · ${w.checks.length} 件`));
-        for (const ch of w.checks) {
-          const r = el('div', {
-            background: c.raised, border: `1px solid ${c.border}`, borderRadius: '8px',
-            padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px',
-          });
+        const box = card(c, { gap: '0' });
+        box.appendChild(el('div', { fontWeight: '600', fontSize: '12px', paddingBottom: '6px' }, `必查 · ${w.checks.length} 件`));
+        w.checks.forEach((ch, i) => {
+          const r = stackItem(c, i === 0);
           r.append(
-            el('div', { fontWeight: '600' }, `${ch.item}  ·  ${ch.who}`),
-            el('div', { color: c.muted }, ch.ask),
-            el('div', { color: c.faint }, '判据 · ' + ch.criteria),
+            el('div', { fontWeight: '500' }, `${ch.item}  ·  ${ch.who}`),
+            el('div', { color: c.muted, fontSize: '12px' }, ch.ask),
+            el('div', { color: c.faint, fontSize: '12px' }, '判据 · ' + ch.criteria),
           );
           box.appendChild(r);
-        }
+        });
         pad.appendChild(box);
       }
     }
@@ -538,26 +561,22 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
       const items = open.filter((p) => p.owner === o);
       const notes = (w?.people ?? []).find((x) => x.name.toLowerCase() === o.toLowerCase());
       if (!items.length && !notes) continue;
-      const box = card(c, { gap: '10px' });
-      box.appendChild(el('div', { fontWeight: '600', fontSize: '15px' },
+      const box = card(c, { gap: '0' });
+      box.appendChild(el('div', { fontWeight: '600', fontSize: '13px', paddingBottom: '6px' },
         `${o} · ${items.length} 项${items.some((p) => p.status === '停滞') ? ' · 有停滞' : ''}`));
-      if (notes?.note) box.appendChild(el('div', { color: c.warn }, notes.note));
-      for (const p of items) {
-        const r = el('div', {
-          background: c.raised, border: `1px solid ${c.border}`, borderRadius: '8px',
-          padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px',
-          cursor: p.scope ? 'pointer' : 'default',
-        });
-        r.append(el('div', {}, p.title), el('div', { color: c.muted }, p.body));
+      if (notes?.note) box.appendChild(el('div', { color: c.warn, fontSize: '12px', padding: '4px 0' }, notes.note));
+      items.forEach((p, i) => {
+        const r = stackItem(c, i === 0 && !notes?.note, { cursor: p.scope ? 'pointer' : 'default' });
+        r.append(el('div', { fontWeight: '500' }, p.title), el('div', { color: c.faint, fontSize: '12px' }, p.body));
         if (p.scope) {
-          r.appendChild(el('div', { color: c.accent }, '→ ' + p.scope));
+          r.appendChild(el('div', { color: c.faint, fontSize: '12px' }, p.scope));
           r.onclick = () => void openClient(p.scope!);
         }
         box.appendChild(r);
-      }
+      });
       if (notes?.bullets.length) {
-        box.appendChild(el('div', { color: c.faint, letterSpacing: '0.1em' }, '周会笔记里要问的'));
-        notes.bullets.forEach((b) => box.appendChild(el('div', { color: c.muted }, b)));
+        box.appendChild(el('div', { color: c.faint, fontSize: '12px', padding: '8px 0 4px' }, '周会笔记里要问的'));
+        notes.bullets.forEach((b) => box.appendChild(el('div', { color: c.muted, fontSize: '12px' }, b)));
       }
       pad.appendChild(box);
     }
@@ -572,7 +591,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
       const box = card(c, { gap: '8px', cursor: 'pointer' });
       const head = el('div', { display: 'flex', gap: '10px', alignItems: 'baseline', flexWrap: 'wrap' });
       head.append(
-        el('div', { flex: '1 1 200px', minWidth: '0', fontWeight: '600' }, t.lead),
+        el('div', { flex: '1 1 200px', minWidth: '0', fontWeight: '500' }, t.lead),
         el('div', { color: c.faint }, s.collapsed[key] === false ? '收起' : '展开'),
       );
       box.appendChild(head);
@@ -600,7 +619,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     const grid = el('div', { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px' });
     for (const cl of s.data!.clients) {
       const b = card(c, { cursor: 'pointer', gap: '5px', padding: '12px 14px' });
-      b.appendChild(el('div', { fontWeight: '600' }, cl.name));
+      b.appendChild(el('div', { fontWeight: '500' }, cl.name));
       b.appendChild(el('div', { color: c.faint }, `${cl.openCount} 项未闭环${cl.lastEntry ? ' · ' + cl.lastEntry : ''}`));
       b.onclick = () => void openClient(cl.slug);
       grid.appendChild(b);
@@ -612,12 +631,12 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     const wrap = el('div', { display: 'flex', flexDirection: 'column', gap: '12px' });
     const back = ghost(c, '← 客户列表');
     back.onclick = () => { s.client = null; render(); };
-    wrap.append(back, el('div', { fontSize: '17px', fontWeight: '600' }, d.name));
+    wrap.append(back, el('div', { fontSize: '16px', fontWeight: '600' }, d.name));
 
     const block = (title: string, items: string[]) => {
       if (!items.length) return;
       const b = card(c);
-      b.appendChild(el('div', { color: c.faint, letterSpacing: '0.1em' }, title));
+      b.appendChild(el('div', { color: c.faint, fontSize: '12px' }, title));
       items.forEach((i) => b.appendChild(el('div', { color: c.muted }, i)));
       wrap.appendChild(b);
     };
@@ -626,22 +645,22 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     block('产品 / 集成', d.product);
 
     if (d.promises.length) {
-      const list = el('div', { display: 'flex', flexDirection: 'column', border: `1px solid ${c.border}`, borderRadius: '10px', overflow: 'hidden' });
+      const list = listBox(c);
       d.promises.forEach((p, i) => list.appendChild(compactRow(c, p, i > 0)));
-      wrap.append(el('div', { color: c.faint, letterSpacing: '0.1em' }, `未闭环承诺 · ${d.promises.length}`), list);
+      wrap.append(el('div', { color: c.faint, fontSize: '12px' }, `未闭环承诺 · ${d.promises.length}`), list);
     }
 
     if (d.timelineFile) wrap.appendChild(newEntryForm(c, d.timelineFile));
 
     if (d.timeline.length) {
       const b = card(c);
-      b.appendChild(el('div', { color: c.faint, letterSpacing: '0.1em' }, 'Timeline'));
+      b.appendChild(el('div', { color: c.faint, fontSize: '12px' }, 'Timeline'));
       d.timeline.forEach((t) => {
-        const r = el('div', { display: 'flex', flexDirection: 'column', gap: '3px', paddingBottom: '8px', borderBottom: `1px solid ${c.border}` });
+        const r = el('div', { display: 'flex', flexDirection: 'column', gap: '2px', padding: '8px 0', borderBottom: `1px solid ${c.border}` });
         r.append(
-          el('div', { color: c.faint }, t.date),
-          el('div', { fontWeight: '600' }, t.title),
-          el('div', { color: c.muted }, t.body),
+          el('div', { color: c.faint, fontSize: '12px' }, t.date),
+          el('div', { fontWeight: '500' }, t.title),
+          el('div', { color: c.muted, fontSize: '12px' }, t.body),
         );
         b.appendChild(r);
       });
@@ -726,38 +745,38 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
 
   function card(c: C, extra?: Partial<CSSStyleDeclaration>): HTMLElement {
     return el('div', {
-      background: c.surface, border: `1px solid ${c.border}`, borderRadius: '10px',
-      padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px',
+      background: c.surface, border: `1px solid ${c.border}`, borderRadius: '8px',
+      padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '8px',
       ...(extra || {}),
     });
   }
   function primary(c: C, label: string): HTMLButtonElement {
     return el('button', {
-      padding: '8px 16px', borderRadius: '999px', border: 'none', cursor: 'pointer',
+      padding: '7px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer',
       background: c.accent, color: '#fff', fontFamily: FONT, fontSize: '13px',
       fontWeight: '600', alignSelf: 'flex-start',
     }, label);
   }
   function ghost(c: C, label: string): HTMLButtonElement {
     return el('button', {
-      padding: '7px 14px', borderRadius: '999px', cursor: 'pointer',
+      padding: '6px 12px', borderRadius: '999px', cursor: 'pointer',
       border: `1px solid ${c.border}`, background: 'transparent', color: c.muted,
       fontFamily: FONT, fontSize: '13px', alignSelf: 'flex-start',
     }, label);
   }
   function note(c: C, text: string): HTMLElement {
-    return el('div', { color: c.faint }, text);
+    return el('div', { color: c.faint, fontSize: '12px' }, text);
   }
   function banner(c: C, color: string, text: string): HTMLElement {
-    const b = card(c, { borderColor: color });
-    b.appendChild(el('div', { color }, text));
+    const b = card(c, { borderLeft: `2px solid ${color}`, gap: '4px' });
+    b.appendChild(el('div', { color: c.text, fontSize: '13px' }, text));
     return b;
   }
   function pathPrompt(c: C, msg: string): HTMLElement {
     const b = card(c, { gap: '10px' });
     b.appendChild(el('div', { color: c.muted }, msg));
     const i = el('input', {
-      border: `1px solid ${c.border}`, borderRadius: '8px', padding: '9px 12px',
+      border: `1px solid ${c.border}`, borderRadius: '6px', padding: '8px 10px',
       background: c.bg, color: c.text, fontFamily: FONT, fontSize: '13px', outline: 'none',
     });
     i.placeholder = '/Users/you/Library/Mobile Documents/…/workbuddy_icloud_vault';
