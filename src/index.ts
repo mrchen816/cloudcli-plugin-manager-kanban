@@ -356,7 +356,7 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     });
 
     const row = el('div', {
-      display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) auto',
+      display: 'grid', gridTemplateColumns: '52px minmax(0,1fr)',
       gap: '2px 10px', alignItems: 'start', padding: '7px 12px', cursor: 'pointer',
     });
     row.appendChild(el('div', {
@@ -365,19 +365,18 @@ export function mount(container: HTMLElement, api: PluginAPI): void {
     }, dueLabel(p)));
 
     const mid = el('div', { minWidth: '0', display: 'flex', flexDirection: 'column', gap: '1px' });
+    const open = s.expanded === p.id;
     mid.appendChild(el('div', {
-      fontWeight: '500', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      fontWeight: '500', fontSize: '13px',
+      whiteSpace: open ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
     }, p.title));
+    const bits = [p.status, p.scope].filter(Boolean).join(' · ');
+    if (bits) mid.appendChild(el('div', { color: c.faint, fontSize: '12px' }, bits));
     mid.appendChild(el('div', {
-      color: c.faint, fontSize: '12px', whiteSpace: s.expanded === p.id ? 'normal' : 'nowrap',
+      color: c.faint, fontSize: '12px', whiteSpace: open ? 'normal' : 'nowrap',
       overflow: 'hidden', textOverflow: 'ellipsis',
     }, p.body));
     row.appendChild(mid);
-
-    const bits = [p.status, p.scope].filter(Boolean).join(' · ');
-    row.appendChild(el('div', {
-      color: c.faint, fontSize: '12px', whiteSpace: 'nowrap', paddingTop: '1px',
-    }, bits));
 
     row.onclick = () => {
       s.expanded = s.expanded === p.id ? null : p.id;
