@@ -8,9 +8,16 @@ import type {
   ClientDetail, DetectResult, DiffHunk, Initiative, PluginAPI, PluginContext,
   Status, VaultData, Weekly, WriteAction,
 } from './types.js';
-import { REQUIRED_BY_STATUS } from './types.js';
 
 const STALE_DAYS = 10;
+
+/** Duplicated from types.ts — the host loads this file as a single module, so runtime relative imports fail. */
+const REQUIRED_BY_STATUS: Record<Status, string[]> = {
+  idea: ['review_date'],
+  executing: ['owner', 'next_action', 'review_date'],
+  blocked: ['owner', 'blocker', 'waiting_on', 'blocked_since', 'next_action', 'review_date'],
+  closed: [],
+};
 
 /* ── theme ───────────────────────────────────────────────────────── */
 
