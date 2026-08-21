@@ -1,0 +1,13 @@
+{
+  "name": "manager-kanban",
+  "displayName": "Manager 工作台",
+  "version": "0.1.0",
+  "description": "workbuddy vault 的经理工作台：未闭环承诺看板、待回填、周会视图、客户档、Inbox 归档。写入前一律 diff 预览。",
+  "author": "Jimmy Chen",
+  "icon": "icon.svg",
+  "type": "module",
+  "slot": "tab",
+  "entry": "dist/index.js",
+  "server": "dist/server.js",
+  "permissions": []
+}
